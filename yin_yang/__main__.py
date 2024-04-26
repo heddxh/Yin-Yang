@@ -1,31 +1,27 @@
 #!/bin/env python3
 
-import sys
 import logging
+import sys
 from argparse import ArgumentParser
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 from PySide6 import QtWidgets
-from PySide6.QtCore import QTranslator, QLibraryInfo, QLocale, QObject
+from PySide6.QtCore import QLibraryInfo, QLocale, QObject, QTranslator
 from PySide6.QtGui import QIcon
-from PySide6.QtWidgets import QSystemTrayIcon, QMenu
+from PySide6.QtWidgets import QMenu, QSystemTrayIcon
 from systemd import journal
 
-from yin_yang.NotificationHandler import NotificationHandler
-from yin_yang import daemon_handler
+from yin_yang import daemon_handler, theme_switcher
+from yin_yang.config import Modes, config
 from yin_yang.meta import ConfigEvent
-from yin_yang import theme_switcher
-from yin_yang.config import config, Modes
+from yin_yang.NotificationHandler import NotificationHandler
 from yin_yang.ui import main_window_connector
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger()
 
 
 def setup_logger(use_systemd_journal: bool):
-    notification_handler = NotificationHandler()
-    notification_handler.addFilter(lambda record: record.levelno > logging.WARNING)
-    logger.addHandler(notification_handler)
 
     if use_systemd_journal:
         logger.addHandler(journal.JournalHandler(SYSLOG_IDENTIFIER='yin_yang'))
@@ -47,6 +43,11 @@ def setup_logger(use_systemd_journal: bool):
             level=logging.WARNING,
             format='%(asctime)s %(levelname)s - %(name)s: %(message)s'
         )
+
+        notification_handler = NotificationHandler()
+        notification_handler.setLevel(logging.ERROR)
+        logger.addHandler(notification_handler)
+
         # and add a handler that limits the size to 1 GB
         file_handler = RotatingFileHandler(
             str(Path.home()) + '/.local/share/yin_yang.log',
@@ -90,6 +91,7 @@ else:
     app = QtWidgets.QApplication(sys.argv)
     # fixes icon on wayland
     app.setDesktopFileName('Yin-Yang')
+    app.setApplicationName('Yin-Yang')
 
     # load translation
     try:
@@ -120,7 +122,7 @@ else:
     if QSystemTrayIcon.isSystemTrayAvailable():
         app.setQuitOnLastWindowClosed(False)
 
-        icon = QSystemTrayIcon(QIcon(u':icons/logo'), app)
+        icon = QSystemTrayIcon(QIcon().fromTheme('yin_yang'), app)
         icon.activated.connect(systray_icon_clicked)
         icon.setToolTip('Yin & Yang')
 
